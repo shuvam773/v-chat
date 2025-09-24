@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Video, VideoOff, Mic, MicOff, Phone, PhoneOff, Users, Wifi, WifiOff, RotateCcw } from 'lucide-react';
+import { Video, VideoOff, Mic, MicOff, Phone, PhoneOff, Users, Wifi, WifiOff } from 'lucide-react';
 import { useWebRTC } from '../hooks/useWebRTC';
 import { useSocket } from '../hooks/useSocket';
 import ServerStatus from './ServerStatus';
@@ -11,7 +11,6 @@ const VideoChat: React.FC = () => {
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [connectionState, setConnectionState] = useState<'idle' | 'searching' | 'connecting' | 'connected'>('idle');
-  const [isFrontCamera, setIsFrontCamera] = useState(true);
 
   const { 
     localStream, 
@@ -20,8 +19,7 @@ const VideoChat: React.FC = () => {
     endCall, 
     toggleVideo, 
     toggleAudio,
-    connectionStatus,
-    switchCamera 
+    connectionStatus
   } = useWebRTC(localVideoRef, remoteVideoRef);
 
   const onPeerDisconnected = useCallback(() => {
@@ -86,15 +84,6 @@ const VideoChat: React.FC = () => {
   const handleToggleAudio = () => {
     const newState = toggleAudio();
     setIsAudioEnabled(newState);
-  };
-
-  const handleSwitchCamera = async () => {
-    try {
-      await switchCamera();
-      setIsFrontCamera(!isFrontCamera);
-    } catch (error) {
-      console.error('Error switching camera:', error);
-    }
   };
 
   const getStatusText = () => {
@@ -207,7 +196,7 @@ const VideoChat: React.FC = () => {
               muted
               playsInline
               className="w-full h-full object-cover"
-              style={{ transform: isFrontCamera ? 'scaleX(-1)' : 'scaleX(1)' }}
+              style={{ transform: 'scaleX(-1)' }}
             />
             
             {/* Video Off Overlay */}
@@ -233,17 +222,6 @@ const VideoChat: React.FC = () => {
                 <MicOff className="w-4 h-4 lg:w-5 lg:h-5 text-red-400" />
               )}
             </div>
-
-            {/* Camera Rotate Button */}
-            {isVideoEnabled && (
-              <button
-                onClick={handleSwitchCamera}
-                className="absolute bottom-3 right-3 bg-black/50 backdrop-blur-sm rounded-full p-2 hover:bg-black/70 transition-all"
-                title="Switch Camera"
-              >
-                <RotateCcw className="w-4 h-4 lg:w-5 lg:h-5 text-white" />
-              </button>
-            )}
           </div>
 
           {/* Single Video View when not connected */}
