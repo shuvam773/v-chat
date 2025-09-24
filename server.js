@@ -95,6 +95,7 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect-peer', () => {
     handleDisconnection(socket.id);
+    roomCounter = Math.max(0, roomCounter - 1);
   });
 
   socket.on('disconnect', () => {
