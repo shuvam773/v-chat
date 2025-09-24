@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Video, VideoOff, Mic, MicOff, Phone, PhoneOff, Users, Wifi, WifiOff } from 'lucide-react';
+import { Video, VideoOff, Mic, MicOff, Phone, PhoneOff, Users, Wifi, WifiOff, RotateCcw } from 'lucide-react';
 import { useWebRTC } from '../hooks/useWebRTC';
 import { useSocket } from '../hooks/useSocket';
 import ServerStatus from './ServerStatus';
@@ -11,6 +11,7 @@ const VideoChat: React.FC = () => {
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [connectionState, setConnectionState] = useState<'idle' | 'searching' | 'connecting' | 'connected'>('idle');
+  const [isFrontCamera, setIsFrontCamera] = useState(true);
 
   const { 
     localStream, 
@@ -19,7 +20,8 @@ const VideoChat: React.FC = () => {
     endCall, 
     toggleVideo, 
     toggleAudio,
-    connectionStatus 
+    connectionStatus,
+    switchCamera 
   } = useWebRTC(localVideoRef, remoteVideoRef);
 
   const onPeerDisconnected = useCallback(() => {
@@ -86,6 +88,15 @@ const VideoChat: React.FC = () => {
     setIsAudioEnabled(newState);
   };
 
+  const handleSwitchCamera = async () => {
+    try {
+      await switchCamera();
+      setIsFrontCamera(!isFrontCamera);
+    } catch (error) {
+      console.error('Error switching camera:', error);
+    }
+  };
+
   const getStatusText = () => {
     switch (connectionState) {
       case 'searching':
@@ -125,6 +136,7 @@ const VideoChat: React.FC = () => {
 
       {/* Main Video Container - No scrolling needed */}
       <div className="flex-1 flex items-center justify-center p-2 lg:p-4 relative overflow-hidden">
+        
         {/* Connection Status Overlay */}
         {!remoteStream && (
           <div className="absolute inset-0 flex items-center justify-center z-10 bg-gray-900">
@@ -157,8 +169,8 @@ const VideoChat: React.FC = () => {
         {/* Video Layout */}
         <div className="w-full h-full max-w-6xl max-h-[80vh] flex items-center justify-center relative">
           
-          {/* Remote Video - Main Video */}
-          <div className={`relative w-full h-full max-w-4xl max-h-full aspect-square lg:aspect-video bg-black rounded-xl lg:rounded-2xl overflow-hidden shadow-2xl ${
+          {/* Remote Video - Main Video (Always visible when connected) */}
+          <div className={`relative w-full h-full bg-black rounded-xl lg:rounded-2xl overflow-hidden shadow-2xl ${
             remoteStream ? 'block' : 'hidden'
           }`}>
             <video
@@ -181,19 +193,19 @@ const VideoChat: React.FC = () => {
             )}
           </div>
 
-          {/* Local Video - Picture-in-Picture */}
+          {/* Local Video - Always visible in bottom-right corner (WhatsApp style) */}
           <div className={`absolute bg-black rounded-lg lg:rounded-xl overflow-hidden shadow-2xl border-2 border-white/30 transition-all duration-300 ${
             remoteStream 
-              ? 'bottom-3 right-3 w-24 h-32 lg:w-40 lg:h-52 lg:bottom-4 lg:right-4' 
-              : 'relative w-full h-full max-w-md max-h-md aspect-square'
-          } ${!remoteStream ? 'block' : 'hidden'}`}>
+              ? 'bottom-3 right-3 w-32 h-40 lg:w-48 lg:h-60 lg:bottom-4 lg:right-4 z-20' 
+              : 'relative w-full h-full max-w-md max-h-md'
+          }`}>
             <video
               ref={localVideoRef}
               autoPlay
               muted
               playsInline
               className="w-full h-full object-cover"
-              style={{ transform: 'scaleX(-1)' }}
+              style={{ transform: isFrontCamera ? 'scaleX(-1)' : 'scaleX(1)' }}
             />
             
             {/* Video Off Overlay */}
@@ -219,7 +231,27 @@ const VideoChat: React.FC = () => {
                 <MicOff className="w-3 h-3 lg:w-4 lg:h-4 text-red-400" />
               )}
             </div>
+
+            {/* Camera Rotate Button - Only show when video is enabled */}
+            {isVideoEnabled && (
+              <button
+                onClick={handleSwitchCamera}
+                className="absolute bottom-2 right-2 bg-black/50 backdrop-blur-sm rounded-full p-2 hover:bg-black/70 transition-all"
+                title="Switch Camera"
+              >
+                <RotateCcw className="w-3 h-3 lg:w-4 lg:h-4 text-white" />
+              </button>
+            )}
           </div>
+
+          {/* Fallback when no remote stream - Show local video centered */}
+          {!remoteStream && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-center">
+                <p className="text-gray-400 text-lg">Waiting for connection...</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
