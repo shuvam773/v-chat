@@ -26,7 +26,8 @@ const server = createServer(app);
 const io = new Server(server, {
   cors: {
     origin: "https://v-chat-tau.vercel.app",
-    methods: ["GET", "POST"]
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 

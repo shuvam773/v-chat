@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Video, VideoOff, Mic, MicOff, Phone, PhoneOff, Users, Wifi, WifiOff, RotateCcw } from 'lucide-react';
+import { Video, VideoOff, Mic, MicOff, Phone, PhoneOff, Users, Wifi, WifiOff, RotateCcw, Copyright } from 'lucide-react';
 import { useWebRTC } from '../hooks/useWebRTC';
 import { useSocket } from '../hooks/useSocket';
 import ServerStatus from './ServerStatus';
@@ -326,7 +326,7 @@ const VideoChat: React.FC = () => {
           {/* Status Text */}
           <div className="text-center mt-2 lg:mt-3">
             <p className="text-gray-300 text-xs lg:text-sm">
-              {connectionState === 'connected' ? 'Connected securely via WebRTC' : getStatusText()}
+              {connectionState === 'connected' ? `Connected securely via WebRTC ${<Copyright />} Shuvam Kumar` : getStatusText()}
             </p>
           </div>
         </div>
