@@ -4,9 +4,7 @@ import { useWebRTC } from '../hooks/useWebRTC';
 import { useSocket } from '../hooks/useSocket';
 import ServerStatus from './ServerStatus';
 
-interface VideoChatProps {}
-
-const VideoChat: React.FC<VideoChatProps> = () => {
+const VideoChat: React.FC = () => {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   
@@ -176,6 +174,7 @@ const VideoChat: React.FC<VideoChatProps> = () => {
                 muted
                 playsInline
                 className="w-full h-full object-cover"
+                style={{ transform: 'scaleX(-1)' }} // Flip horizontally for correct orientation
               />
               
               {/* Video Off Overlay */}

@@ -6,8 +6,9 @@ import cors from 'cors';
 const app = express();
 app.use(cors(
   {
-    origin: "https://v-chat-tau.vercel.app/",
-    methods: ["GET", "POST"]
+    origin: "https://v-chat-tau.vercel.app",
+    methods: ["GET", "POST"],
+    credentials: true
   }
 ));
 
@@ -24,7 +25,7 @@ app.get('/status', (req, res) => {
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "https://v-chat-tau.vercel.app/",
+    origin: "https://v-chat-tau.vercel.app",
     methods: ["GET", "POST"]
   }
 });

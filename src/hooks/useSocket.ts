@@ -17,7 +17,7 @@ export const useSocket = (
 
   useEffect(() => {
     // const socket = io('http://localhost:3001');
-    const socket = io('https://v-chat-qdyg.onrender.com/');
+    const socket = io('https://v-chat-qdyg.onrender.com');
     socketRef.current = socket;
     window.socketInstance = socket;
 

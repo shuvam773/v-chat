@@ -14,7 +14,7 @@ const ServerStatus: React.FC = () => {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const socketUrl = 'https://v-chat-qdyg.onrender.com/';
+        const socketUrl = 'https://v-chat-qdyg.onrender.com';
         const response = await fetch(`${socketUrl}/status`);
         const data = await response.json();
         setStatus(data);
