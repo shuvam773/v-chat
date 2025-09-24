@@ -4,7 +4,12 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 
 const app = express();
-app.use(cors());
+app.use(cors(
+  {
+    origin: "https://v-chat-tau.vercel.app/",
+    methods: ["GET", "POST"]
+  }
+));
 
 // Add a status endpoint to monitor server state
 app.get('/status', (req, res) => {
@@ -19,7 +24,7 @@ app.get('/status', (req, res) => {
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: "https://v-chat-tau.vercel.app/",
     methods: ["GET", "POST"]
   }
 });
