@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Video, VideoOff, Mic, MicOff, Phone, PhoneOff, Users, Wifi, WifiOff } from 'lucide-react';
 import { useWebRTC } from '../hooks/useWebRTC';
 import { useSocket } from '../hooks/useSocket';
+import ServerStatus from './ServerStatus';
 
 interface VideoChatProps {}
 
@@ -112,7 +113,8 @@ const VideoChat: React.FC<VideoChatProps> = () => {
             <h1 className="text-2xl lg:text-3xl font-bold text-white">VideoConnect</h1>
           </div>
           
-          <div className="flex items-center space-x-2 text-sm">
+          <div className="flex items-center space-x-4 text-sm">
+            <ServerStatus />
             <div className={`flex items-center space-x-1 px-3 py-1 rounded-full ${
               socketConnected ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
             }`}>

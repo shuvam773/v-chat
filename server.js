@@ -6,6 +6,16 @@ import cors from 'cors';
 const app = express();
 app.use(cors());
 
+// Add a status endpoint to monitor server state
+app.get('/status', (req, res) => {
+  res.json({
+    waitingUsers: waitingUsers.size,
+    activeConnections: activeConnections.size / 2,
+    totalRooms: roomCounter,
+    uptime: process.uptime()
+  });
+});
+
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
@@ -17,12 +27,15 @@ const io = new Server(server, {
 // Store waiting users and active connections
 let waitingUsers = new Set();
 let activeConnections = new Map();
+let roomCounter = 0;
 
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
   socket.on('find-peer', () => {
     console.log('User looking for peer:', socket.id);
+    console.log('Current waiting users:', waitingUsers.size);
+    console.log('Current active connections:', activeConnections.size / 2);
     
     // Remove from any existing connection first
     if (activeConnections.has(socket.id)) {
@@ -30,6 +43,7 @@ io.on('connection', (socket) => {
       activeConnections.delete(socket.id);
       activeConnections.delete(partnerId);
       socket.to(partnerId).emit('peer-disconnected');
+      console.log('Removed existing connection:', socket.id, 'and', partnerId);
     }
     
     waitingUsers.delete(socket.id);
@@ -45,16 +59,21 @@ io.on('connection', (socket) => {
       activeConnections.set(socket.id, peerId);
       activeConnections.set(peerId, socket.id);
       
-      // Notify both users they've been matched
-      socket.emit('peer-found', { peerId, initiator: true });
-      socket.to(peerId).emit('peer-found', { peerId: socket.id, initiator: false });
+      // Generate a unique room ID for this connection
+      roomCounter++;
+      const roomId = `room_${roomCounter}`;
       
-      console.log('Connected users:', socket.id, 'and', peerId);
+      // Notify both users they've been matched
+      socket.emit('peer-found', { peerId, initiator: true, roomId });
+      socket.to(peerId).emit('peer-found', { peerId: socket.id, initiator: false, roomId });
+      
+      console.log(`Room ${roomId}: Connected users ${socket.id} and ${peerId}`);
+      console.log(`Total active rooms: ${activeConnections.size / 2}`);
     } else {
       // Add to waiting list
       waitingUsers.add(socket.id);
       socket.emit('waiting-for-peer');
-      console.log('User added to waiting list:', socket.id);
+      console.log('User added to waiting list:', socket.id, 'Total waiting:', waitingUsers.size);
     }
   });
 
