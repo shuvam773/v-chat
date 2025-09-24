@@ -134,8 +134,8 @@ const VideoChat: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Video Container - No scrolling needed */}
-      <div className="flex-1 flex items-center justify-center p-2 lg:p-4 relative overflow-hidden">
+      {/* Main Video Container - 4:3 ratio, no scrolling */}
+      <div className="flex-1 flex items-center justify-center p-3 lg:p-4 relative overflow-hidden">
         
         {/* Connection Status Overlay */}
         {!remoteStream && (
@@ -166,12 +166,16 @@ const VideoChat: React.FC = () => {
           </div>
         )}
 
-        {/* Video Layout */}
-        <div className="w-full h-full max-w-6xl max-h-[80vh] flex items-center justify-center relative">
+        {/* Video Grid - 4:3 ratio containers */}
+        <div className={`w-full h-full max-w-6xl flex items-center justify-center ${
+          remoteStream 
+            ? 'grid grid-cols-1 grid-rows-2 lg:grid-cols-2 lg:grid-rows-1 gap-3 lg:gap-4' 
+            : 'flex'
+        }`}>
           
-          {/* Remote Video - Main Video (Always visible when connected) */}
-          <div className={`relative w-full h-full bg-black rounded-xl lg:rounded-2xl overflow-hidden shadow-2xl ${
-            remoteStream ? 'block' : 'hidden'
+          {/* Remote Video - Top on mobile, Left on desktop */}
+          <div className={`relative bg-black rounded-xl lg:rounded-2xl overflow-hidden shadow-2xl border-2 border-green-500/30 ${
+            remoteStream ? 'aspect-[4/3] w-full h-full' : 'hidden'
           }`}>
             <video
               ref={remoteVideoRef}
@@ -193,11 +197,9 @@ const VideoChat: React.FC = () => {
             )}
           </div>
 
-          {/* Local Video - Always visible in bottom-right corner (WhatsApp style) */}
-          <div className={`absolute bg-black rounded-lg lg:rounded-xl overflow-hidden shadow-2xl border-2 border-white/30 transition-all duration-300 ${
-            remoteStream 
-              ? 'bottom-3 right-3 w-32 h-40 lg:w-48 lg:h-60 lg:bottom-4 lg:right-4 z-20' 
-              : 'relative w-full h-full max-w-md max-h-md'
+          {/* Local Video - Bottom on mobile, Right on desktop */}
+          <div className={`relative bg-black rounded-xl lg:rounded-2xl overflow-hidden shadow-2xl border-2 border-blue-500/30 ${
+            remoteStream ? 'aspect-[4/3] w-full h-full' : 'aspect-[4/3] w-full max-w-md'
           }`}>
             <video
               ref={localVideoRef}
@@ -212,44 +214,43 @@ const VideoChat: React.FC = () => {
             {!isVideoEnabled && (
               <div className="absolute inset-0 bg-gray-900/90 flex items-center justify-center">
                 <div className="text-center">
-                  <VideoOff className="w-6 h-6 lg:w-8 lg:h-8 text-gray-400 mx-auto mb-1" />
-                  <p className="text-gray-400 text-xs">Camera Off</p>
+                  <VideoOff className="w-8 h-8 lg:w-12 lg:h-12 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-400 text-sm">Camera Off</p>
                 </div>
               </div>
             )}
             
             {/* Local Video Label */}
-            <div className="absolute top-2 left-2 bg-black/50 backdrop-blur-sm rounded-full px-2 py-1">
-              <p className="text-white text-xs font-medium">You</p>
+            <div className="absolute top-3 left-3 bg-black/50 backdrop-blur-sm rounded-full px-3 py-1">
+              <p className="text-white text-sm font-medium">You</p>
             </div>
             
             {/* Audio Status */}
-            <div className="absolute top-2 right-2 bg-black/50 backdrop-blur-sm rounded-full p-1">
+            <div className="absolute top-3 right-3 bg-black/50 backdrop-blur-sm rounded-full p-2">
               {isAudioEnabled ? (
-                <Mic className="w-3 h-3 lg:w-4 lg:h-4 text-green-400" />
+                <Mic className="w-4 h-4 lg:w-5 lg:h-5 text-green-400" />
               ) : (
-                <MicOff className="w-3 h-3 lg:w-4 lg:h-4 text-red-400" />
+                <MicOff className="w-4 h-4 lg:w-5 lg:h-5 text-red-400" />
               )}
             </div>
 
-            {/* Camera Rotate Button - Only show when video is enabled */}
+            {/* Camera Rotate Button */}
             {isVideoEnabled && (
               <button
                 onClick={handleSwitchCamera}
-                className="absolute bottom-2 right-2 bg-black/50 backdrop-blur-sm rounded-full p-2 hover:bg-black/70 transition-all"
+                className="absolute bottom-3 right-3 bg-black/50 backdrop-blur-sm rounded-full p-2 hover:bg-black/70 transition-all"
                 title="Switch Camera"
               >
-                <RotateCcw className="w-3 h-3 lg:w-4 lg:h-4 text-white" />
+                <RotateCcw className="w-4 h-4 lg:w-5 lg:h-5 text-white" />
               </button>
             )}
           </div>
 
-          {/* Fallback when no remote stream - Show local video centered */}
+          {/* Single Video View when not connected */}
           {!remoteStream && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center">
-                <p className="text-gray-400 text-lg">Waiting for connection...</p>
-              </div>
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+              <p className="text-gray-400 text-lg mb-2">Your Camera Preview</p>
+              <p className="text-gray-500 text-sm">Start a call to see your partner's video</p>
             </div>
           )}
         </div>
