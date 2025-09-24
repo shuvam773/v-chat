@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Video, VideoOff, Mic, MicOff, Phone, PhoneOff, Users, Wifi, WifiOff } from 'lucide-react';
+import { Video, VideoOff, Mic, MicOff, Phone, PhoneOff, Users, Wifi, WifiOff, Tv } from 'lucide-react';
 import { useWebRTC } from '../hooks/useWebRTC';
 import { useSocket } from '../hooks/useSocket';
 import ServerStatus from './ServerStatus';
@@ -105,11 +105,18 @@ const VideoChat: React.FC = () => {
       <header className="p-3 lg:p-4 backdrop-blur-sm bg-black/30 border-b border-white/10">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-green-500 rounded-lg">
-              <Users className="w-5 h-5 lg:w-6 lg:h-6 text-white" />
-            </div>
-            <h1 className="text-xl lg:text-2xl font-bold text-white">VideoConnect</h1>
-          </div>
+  <div className="relative">
+    <div className="absolute -inset-1 bg-gradient-to-r from-green-400 to-blue-500 rounded-full blur opacity-75 animate-pulse"></div>
+    <div className="relative p-3 bg-gray-900 rounded-full border-2 border-green-400/50">
+      <Tv className="w-5 h-5 lg:w-6 lg:h-6 text-green-400" />
+    </div>
+  </div>
+  <h1 className="text-xl lg:text-2xl font-bold text-white">
+    <span className="bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
+      VChat
+    </span>
+  </h1>
+</div>
           
           <div className="flex items-center space-x-3 lg:space-x-4 text-xs lg:text-sm">
             <ServerStatus />
