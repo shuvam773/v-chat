@@ -50,6 +50,21 @@ const VideoChat: React.FC<VideoChatProps> = () => {
     setConnectionState(connectionStatus);
   }, [connectionStatus]);
 
+  // Sync local state with actual track states
+  useEffect(() => {
+    if (localStream) {
+      const videoTrack = localStream.getVideoTracks()[0];
+      const audioTrack = localStream.getAudioTracks()[0];
+      
+      if (videoTrack) {
+        setIsVideoEnabled(videoTrack.enabled);
+      }
+      if (audioTrack) {
+        setIsAudioEnabled(audioTrack.enabled);
+      }
+    }
+  }, [localStream]);
+
   const handleStartCall = async () => {
     if (!socketConnected) return;
     setConnectionState('searching');
@@ -143,7 +158,7 @@ const VideoChat: React.FC<VideoChatProps> = () => {
               className={`p-3 rounded-full transition-all ${
                 isAudioEnabled ? 'bg-gray-700 hover:bg-gray-600' : 'bg-red-500 hover:bg-red-600'
               } text-white disabled:opacity-50`}
-              disabled={connectionState !== 'connected'}
+              disabled={false}
             >
               {isAudioEnabled ? <Mic className="w-6 h-6" /> : <MicOff className="w-6 h-6" />}
             </button>
@@ -172,7 +187,7 @@ const VideoChat: React.FC<VideoChatProps> = () => {
               className={`p-3 rounded-full transition-all ${
                 isVideoEnabled ? 'bg-gray-700 hover:bg-gray-600' : 'bg-red-500 hover:bg-red-600'
               } text-white disabled:opacity-50`}
-              disabled={connectionState !== 'connected'}
+              disabled={false}
             >
               {isVideoEnabled ? <Video className="w-6 h-6" /> : <VideoOff className="w-6 h-6" />}
             </button>
