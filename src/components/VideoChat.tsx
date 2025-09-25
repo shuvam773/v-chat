@@ -145,19 +145,25 @@ const VideoChat: React.FC = () => {
 
           <div className="flex items-center space-x-3 lg:space-x-4 text-xs lg:text-sm">
             <ServerStatus />
-            
+
             {/* Auto Reconnect Toggle */}
-            <button
-              onClick={handleToggleAutoReconnect}
-              className={`flex items-center space-x-1 px-2 lg:px-3 py-1 rounded-full transition-all ${autoReconnect
-                ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-                : 'bg-gray-500/20 text-gray-400 hover:bg-gray-500/30'
-                } backdrop-blur-sm border border-white/10`}
-              title={autoReconnect ? "Auto-reconnect enabled" : "Auto-reconnect disabled"}
-            >
-              <RefreshCw className={`w-3 h-3 lg:w-4 lg:h-4 ${autoReconnect ? 'animate-spin' : ''}`} />
-              <span>Auto</span>
-            </button>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleToggleAutoReconnect}
+                className="flex items-center space-x-2 focus:outline-none group"
+                title={autoReconnect ? "Auto-reconnect enabled" : "Auto-reconnect disabled"}
+              >
+                <RefreshCw className={`w-3 h-3 lg:w-4 lg:h-4 ${autoReconnect ? 'text-green-400 animate-spin' : 'text-gray-400'
+                  }`} />
+                <div className={`relative inline-flex h-5 w-9 items-center rounded-full transition-all duration-300 ${autoReconnect ? 'bg-green-500' : 'bg-gray-600'
+                  }`}>
+                  <span
+                    className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform duration-300 ${autoReconnect ? 'translate-x-4' : 'translate-x-1'
+                      }`}
+                  />
+                </div>
+              </button>
+            </div>
 
             <div className={`flex items-center space-x-1 px-2 lg:px-3 py-1 rounded-full ${socketConnected ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
               }`}>
