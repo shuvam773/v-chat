@@ -16,7 +16,7 @@ app.use(cors(
 app.get('/status', (req, res) => {
   res.json({
     waitingUsers: waitingUsers.size,
-    activeConnections: activeConnections.size / 2,
+    activeConnections: activeConnections.size,
     totalRooms: roomCounter,
     uptime: process.uptime()
   });
@@ -102,6 +102,7 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
     handleDisconnection(socket.id);
+    roomCounter = Math.max(0, roomCounter - 1);
   });
 
   function handleDisconnection(socketId) {

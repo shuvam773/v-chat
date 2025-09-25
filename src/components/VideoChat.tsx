@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Video, VideoOff, Mic, MicOff, Phone, PhoneOff, Users, Wifi, WifiOff, Tv } from 'lucide-react';
+import { Video, VideoOff, Mic, MicOff, Phone, PhoneOff, Users, Wifi, WifiOff, Tv, RefreshCw } from 'lucide-react';
 import { useWebRTC } from '../hooks/useWebRTC';
 import { useSocket } from '../hooks/useSocket';
 import ServerStatus from './ServerStatus';
@@ -7,31 +7,52 @@ import ServerStatus from './ServerStatus';
 const VideoChat: React.FC = () => {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
-  
+
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [connectionState, setConnectionState] = useState<'idle' | 'searching' | 'connecting' | 'connected'>('idle');
+  const [autoReconnect, setAutoReconnect] = useState(true); // New state for auto-reconnect
 
-  const { 
-    localStream, 
-    remoteStream, 
-    startCall, 
-    endCall, 
-    toggleVideo, 
+  const {
+    localStream,
+    remoteStream,
+    startCall,
+    endCall,
+    toggleVideo,
     toggleAudio,
     connectionStatus
   } = useWebRTC(localVideoRef, remoteVideoRef);
 
   const onPeerDisconnected = useCallback(() => {
-    setConnectionState('idle');
+    setConnectionState("idle");
     endCall();
-  }, [endCall]);
 
-  const { 
-    isConnected: socketConnected, 
-    findPeer, 
-    disconnectPeer 
+    // Only auto-reconnect if the feature is enabled
+    if (autoReconnect) {
+      setTimeout(() => {
+        if (socketConnectedRef.current) {
+          setConnectionState("searching");
+          findPeerRef.current();
+        }
+      }, 1000);
+    }
+  }, [endCall, autoReconnect]); // Add autoReconnect to dependencies
+
+  // store refs to avoid "used before declaration" error
+  const socketConnectedRef = useRef(false);
+  const findPeerRef = useRef(() => { });
+
+  // now initialize useSocket
+  const {
+    isConnected: socketConnected,
+    findPeer,
+    disconnectPeer
   } = useSocket(startCall, onPeerDisconnected);
+
+  useEffect(() => {
+    socketConnectedRef.current = socketConnected;
+    findPeerRef.current = findPeer;
+  }, [socketConnected, findPeer]);
 
   useEffect(() => {
     if (localVideoRef.current && localStream) {
@@ -54,7 +75,7 @@ const VideoChat: React.FC = () => {
     if (localStream) {
       const videoTrack = localStream.getVideoTracks()[0];
       const audioTrack = localStream.getAudioTracks()[0];
-      
+
       if (videoTrack) {
         setIsVideoEnabled(videoTrack.enabled);
       }
@@ -86,6 +107,10 @@ const VideoChat: React.FC = () => {
     setIsAudioEnabled(newState);
   };
 
+  const handleToggleAutoReconnect = () => {
+    setAutoReconnect(prev => !prev);
+  };
+
   const getStatusText = () => {
     switch (connectionState) {
       case 'searching':
@@ -105,24 +130,37 @@ const VideoChat: React.FC = () => {
       <header className="p-3 lg:p-4 backdrop-blur-sm bg-black/30 border-b border-white/10">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-3">
-  <div className="relative">
-    <div className="absolute -inset-1 bg-gradient-to-r from-green-400 to-blue-500 rounded-full blur opacity-75 animate-pulse"></div>
-    <div className="relative p-3 bg-gray-900 rounded-full border-2 border-green-400/50">
-      <Tv className="w-5 h-5 lg:w-6 lg:h-6 text-green-400" />
-    </div>
-  </div>
-  <h1 className="text-xl lg:text-2xl font-bold text-white">
-    <span className="bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
-      VChat
-    </span>
-  </h1>
-</div>
-          
+            <div className="relative">
+              <div className="absolute -inset-1 bg-gradient-to-r from-green-400 to-blue-500 rounded-full blur opacity-75 animate-pulse"></div>
+              <div className="relative p-3 bg-gray-900 rounded-full border-2 border-green-400/50">
+                <Tv className="w-5 h-5 lg:w-6 lg:h-6 text-green-400" />
+              </div>
+            </div>
+            <h1 className="text-xl lg:text-2xl font-bold text-white">
+              <span className="bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
+                VChat
+              </span>
+            </h1>
+          </div>
+
           <div className="flex items-center space-x-3 lg:space-x-4 text-xs lg:text-sm">
             <ServerStatus />
-            <div className={`flex items-center space-x-1 px-2 lg:px-3 py-1 rounded-full ${
-              socketConnected ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-            }`}>
+            
+            {/* Auto Reconnect Toggle */}
+            <button
+              onClick={handleToggleAutoReconnect}
+              className={`flex items-center space-x-1 px-2 lg:px-3 py-1 rounded-full transition-all ${autoReconnect
+                ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                : 'bg-gray-500/20 text-gray-400 hover:bg-gray-500/30'
+                } backdrop-blur-sm border border-white/10`}
+              title={autoReconnect ? "Auto-reconnect enabled" : "Auto-reconnect disabled"}
+            >
+              <RefreshCw className={`w-3 h-3 lg:w-4 lg:h-4 ${autoReconnect ? 'animate-spin' : ''}`} />
+              <span>Auto</span>
+            </button>
+
+            <div className={`flex items-center space-x-1 px-2 lg:px-3 py-1 rounded-full ${socketConnected ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+              }`}>
               {socketConnected ? <Wifi className="w-3 h-3 lg:w-4 lg:h-4" /> : <WifiOff className="w-3 h-3 lg:w-4 lg:h-4" />}
               <span>{socketConnected ? 'Online' : 'Offline'}</span>
             </div>
@@ -132,7 +170,7 @@ const VideoChat: React.FC = () => {
 
       {/* Main Video Container - 4:3 ratio, no scrolling */}
       <div className="flex-1 flex items-center justify-center p-3 lg:p-4 relative overflow-hidden">
-        
+
         {/* Connection Status Overlay */}
         {!remoteStream && (
           <div className="absolute inset-0 flex items-center justify-center z-10 bg-gray-900">
@@ -147,7 +185,7 @@ const VideoChat: React.FC = () => {
                 {connectionState === 'searching' ? 'Finding a Partner...' : 'Ready to Connect'}
               </h2>
               <p className="text-gray-300 text-sm lg:text-base mb-4">{getStatusText()}</p>
-              
+
               {connectionState === 'idle' && (
                 <button
                   onClick={handleStartCall}
@@ -163,28 +201,26 @@ const VideoChat: React.FC = () => {
         )}
 
         {/* Video Grid - 4:3 ratio containers */}
-        <div className={`w-full h-full max-w-6xl flex items-center justify-center ${
-          remoteStream 
-            ? 'grid grid-cols-1 grid-rows-2 lg:grid-cols-2 lg:grid-rows-1 gap-3 lg:gap-4' 
-            : 'flex'
-        }`}>
-          
-          {/* Remote Video - Top on mobile, Left on desktop */}
-          <div className={`relative bg-black rounded-xl lg:rounded-2xl overflow-hidden shadow-2xl border-2 border-green-500/30 ${
-            remoteStream ? 'aspect-[4/3] w-full h-full' : 'hidden'
+        <div className={`w-full h-full max-w-6xl flex items-center justify-center ${remoteStream
+          ? 'grid grid-cols-1 grid-rows-2 lg:grid-cols-2 lg:grid-rows-1 gap-3 lg:gap-4'
+          : 'flex'
           }`}>
+
+          {/* Remote Video - Top on mobile, Left on desktop */}
+          <div className={`relative bg-black rounded-xl lg:rounded-2xl overflow-hidden shadow-2xl border-2 border-green-500/30 ${remoteStream ? 'aspect-[4/3] w-full h-full' : 'hidden'
+            }`}>
             <video
               ref={remoteVideoRef}
               autoPlay
               playsInline
               className="w-full h-full object-cover"
             />
-            
+
             {/* Remote Video Label */}
             <div className="absolute top-3 left-3 bg-black/50 backdrop-blur-sm rounded-full px-3 py-1">
               <p className="text-white text-sm font-medium">Partner</p>
             </div>
-            
+
             {/* Connection Status */}
             {connectionState === 'connected' && (
               <div className="absolute top-3 right-3 bg-green-500/20 backdrop-blur-sm rounded-full px-3 py-1">
@@ -194,9 +230,8 @@ const VideoChat: React.FC = () => {
           </div>
 
           {/* Local Video - Bottom on mobile, Right on desktop */}
-          <div className={`relative bg-black rounded-xl lg:rounded-2xl overflow-hidden shadow-2xl border-2 border-blue-500/30 ${
-            remoteStream ? 'aspect-[4/3] w-full h-full' : 'aspect-[4/3] w-full max-w-md'
-          }`}>
+          <div className={`relative bg-black rounded-xl lg:rounded-2xl overflow-hidden shadow-2xl border-2 border-blue-500/30 ${remoteStream ? 'aspect-[4/3] w-full h-full' : 'aspect-[4/3] w-full max-w-md'
+            }`}>
             <video
               ref={localVideoRef}
               autoPlay
@@ -205,7 +240,7 @@ const VideoChat: React.FC = () => {
               className="w-full h-full object-cover"
               style={{ transform: 'scaleX(-1)' }}
             />
-            
+
             {/* Video Off Overlay */}
             {!isVideoEnabled && (
               <div className="absolute inset-0 bg-gray-900/90 flex items-center justify-center">
@@ -215,12 +250,12 @@ const VideoChat: React.FC = () => {
                 </div>
               </div>
             )}
-            
+
             {/* Local Video Label */}
             <div className="absolute top-3 left-3 bg-black/50 backdrop-blur-sm rounded-full px-3 py-1">
               <p className="text-white text-sm font-medium">You</p>
             </div>
-            
+
             {/* Audio Status */}
             <div className="absolute top-3 right-3 bg-black/50 backdrop-blur-sm rounded-full p-2">
               {isAudioEnabled ? (
@@ -245,15 +280,14 @@ const VideoChat: React.FC = () => {
       <div className="p-3 lg:p-4 backdrop-blur-sm bg-black/30 border-t border-white/10">
         <div className="max-w-md mx-auto">
           <div className="flex items-center justify-center space-x-3 lg:space-x-4">
-            
+
             {/* Audio Toggle */}
             <button
               onClick={handleToggleAudio}
-              className={`p-3 lg:p-4 rounded-xl transition-all duration-200 transform hover:scale-105 ${
-                isAudioEnabled 
-                  ? 'bg-gray-700/50 hover:bg-gray-600/50 text-white' 
-                  : 'bg-red-500 hover:bg-red-600 text-white'
-              } backdrop-blur-sm border border-white/10`}
+              className={`p-3 lg:p-4 rounded-xl transition-all duration-200 transform hover:scale-105 ${isAudioEnabled
+                ? 'bg-gray-700/50 hover:bg-gray-600/50 text-white'
+                : 'bg-red-500 hover:bg-red-600 text-white'
+                } backdrop-blur-sm border border-white/10`}
             >
               {isAudioEnabled ? (
                 <Mic className="w-5 h-5 lg:w-6 lg:h-6" />
@@ -294,11 +328,10 @@ const VideoChat: React.FC = () => {
             {/* Video Toggle */}
             <button
               onClick={handleToggleVideo}
-              className={`p-3 lg:p-4 rounded-xl transition-all duration-200 transform hover:scale-105 ${
-                isVideoEnabled 
-                  ? 'bg-gray-700/50 hover:bg-gray-600/50 text-white' 
-                  : 'bg-red-500 hover:bg-red-600 text-white'
-              } backdrop-blur-sm border border-white/10`}
+              className={`p-3 lg:p-4 rounded-xl transition-all duration-200 transform hover:scale-105 ${isVideoEnabled
+                ? 'bg-gray-700/50 hover:bg-gray-600/50 text-white'
+                : 'bg-red-500 hover:bg-red-600 text-white'
+                } backdrop-blur-sm border border-white/10`}
             >
               {isVideoEnabled ? (
                 <Video className="w-5 h-5 lg:w-6 lg:h-6" />
@@ -307,12 +340,17 @@ const VideoChat: React.FC = () => {
               )}
             </button>
           </div>
-          
+
           {/* Status Text */}
           <div className="text-center mt-2 lg:mt-3">
             <p className="text-gray-300 text-xs lg:text-sm">
               {connectionState === 'connected' ? 'Connected securely via WebRTC © Shuvam Kumar' : getStatusText()}
             </p>
+            {connectionState === 'idle' && (
+              <p className="text-gray-400 text-xs mt-1">
+                Auto-reconnect: {autoReconnect ? 'Enabled' : 'Disabled'}
+              </p>
+            )}
           </div>
         </div>
       </div>
