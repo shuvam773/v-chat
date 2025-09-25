@@ -51,7 +51,7 @@ const ServerStatus: React.FC = () => {
     <div className="text-xs text-gray-400 space-y-1">
       <div>Waiting: {status.waitingUsers}</div>
       <div>Active: {status.activeConnections}</div>
-      <div>Rooms: {status.totalRooms}</div>
+      {/* <div>Rooms: {status.totalRooms}</div> */}
     </div>
   );
 };
