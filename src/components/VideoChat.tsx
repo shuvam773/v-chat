@@ -1,17 +1,32 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Video, VideoOff, Mic, MicOff, Phone, PhoneOff, Users, Wifi, WifiOff, Tv, RefreshCw } from 'lucide-react';
+import { Video, VideoOff, Mic, MicOff, Phone, PhoneOff, Users, Wifi, WifiOff, Tv, RefreshCw, MessageCircle, X, Send } from 'lucide-react';
 import { useWebRTC } from '../hooks/useWebRTC';
 import { useSocket } from '../hooks/useSocket';
 import ServerStatus from './ServerStatus';
+import ChatButton from './ChatButton';
+
+// Chat message interface
+interface ChatMessage {
+  id: string;
+  from: string;
+  text: string;
+  timestamp: string;
+  type: 'text' | 'system';
+}
 
 const VideoChat: React.FC = () => {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const chatMessagesRef = useRef<HTMLDivElement>(null);
+  const chatInputRef = useRef<HTMLInputElement>(null);
 
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [connectionState, setConnectionState] = useState<'idle' | 'searching' | 'connecting' | 'connected'>('idle');
-  const [autoReconnect, setAutoReconnect] = useState(true); // New state for auto-reconnect
+  const [autoReconnect, setAutoReconnect] = useState(true);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [newMessage, setNewMessage] = useState('');
 
   const {
     localStream,
@@ -23,9 +38,34 @@ const VideoChat: React.FC = () => {
     connectionStatus
   } = useWebRTC(localVideoRef, remoteVideoRef);
 
+  // Handle incoming chat messages
+  const handleReceiveMessage = useCallback((message: ChatMessage) => {
+
+    setChatMessages(prev => {
+      const messageExists = prev.some(msg => 
+        msg.id === message.id || 
+        (msg.text === message.text && Math.abs(new Date(msg.timestamp).getTime() - new Date(message.timestamp).getTime()) < 1000)
+      );
+      
+      if (!messageExists) {
+        return [...prev, message];
+      }
+      return prev;
+    });
+  }, []);
+
   const onPeerDisconnected = useCallback(() => {
     setConnectionState("idle");
     endCall();
+
+    // Add system message when peer disconnects
+    setChatMessages(prev => [...prev, {
+      id: Date.now().toString(),
+      from: 'system',
+      text: 'Peer disconnected',
+      timestamp: new Date().toISOString(),
+      type: 'system'
+    }]);
 
     // Only auto-reconnect if the feature is enabled
     if (autoReconnect) {
@@ -36,23 +76,46 @@ const VideoChat: React.FC = () => {
         }
       }, 1000);
     }
-  }, [endCall, autoReconnect]); // Add autoReconnect to dependencies
+  }, [endCall, autoReconnect]);
 
-  // store refs to avoid "used before declaration" error
+  // Store refs to avoid "used before declaration" error
   const socketConnectedRef = useRef(false);
   const findPeerRef = useRef(() => { });
+  const sendMessageRef = useRef((text: string) => {});
+  const pendingMessageIdRef = useRef<string | null>(null);
 
-  // now initialize useSocket
+  // Initialize useSocket with chat handler
   const {
     isConnected: socketConnected,
     findPeer,
-    disconnectPeer
-  } = useSocket(startCall, onPeerDisconnected);
+    disconnectPeer,
+    sendMessage
+  } = useSocket({
+    onPeerFound: startCall,
+    onPeerDisconnected,
+    onReceiveMessage: handleReceiveMessage
+  });
 
   useEffect(() => {
     socketConnectedRef.current = socketConnected;
     findPeerRef.current = findPeer;
-  }, [socketConnected, findPeer]);
+    sendMessageRef.current = sendMessage;
+  }, [socketConnected, findPeer, sendMessage]);
+
+  // Auto-scroll chat to bottom when new messages arrive
+  useEffect(() => {
+    if (chatMessagesRef.current) {
+      chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
+    }
+  }, [chatMessages]);
+
+  // Clear chat when peer disconnects
+  useEffect(() => {
+    if (connectionState === 'idle') {
+      setChatMessages([]);
+      pendingMessageIdRef.current = null;
+    }
+  }, [connectionState]);
 
   useEffect(() => {
     if (localVideoRef.current && localStream) {
@@ -89,6 +152,15 @@ const VideoChat: React.FC = () => {
     if (!socketConnected) return;
     setConnectionState('searching');
     findPeer();
+    
+    // Add system message when starting call
+    setChatMessages([{
+      id: Date.now().toString(),
+      from: 'system',
+      text: 'Hey whats up...',
+      timestamp: new Date().toISOString(),
+      type: 'system'
+    }]);
   };
 
   const handleEndCall = () => {
@@ -111,6 +183,58 @@ const VideoChat: React.FC = () => {
     setAutoReconnect(prev => !prev);
   };
 
+  const handleToggleChat = () => {
+    setIsChatOpen(prev => !prev);
+    // Focus input when chat opens
+    setTimeout(() => {
+      if (chatInputRef.current) {
+        chatInputRef.current.focus();
+      }
+    }, 100);
+  };
+
+  const handleSendMessage = () => {
+    if (!newMessage.trim() || !sendMessageRef.current) return;
+
+    // Generate a unique ID for this message
+    const messageId = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    pendingMessageIdRef.current = messageId;
+
+    // Create temporary message for immediate UI update
+    const tempMessage: ChatMessage = {
+      id: messageId,
+      from: window.socketInstance?.id || 'me',
+      text: newMessage.trim(),
+      timestamp: new Date().toISOString(),
+      type: 'text'
+    };
+
+    // Add message immediately to UI (ONLY ONCE)
+    setChatMessages(prev => {
+      // Check if message already exists to prevent duplicates
+      const messageExists = prev.some(msg => msg.id === messageId);
+      if (!messageExists) {
+        return [...prev, tempMessage];
+      }
+      return prev;
+    });
+    
+    // Send message via socket
+    sendMessageRef.current(newMessage.trim());
+    setNewMessage('');
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  const formatTime = (timestamp: string) => {
+    return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
   const getStatusText = () => {
     switch (connectionState) {
       case 'searching':
@@ -122,6 +246,11 @@ const VideoChat: React.FC = () => {
       default:
         return 'Ready to start video chat';
     }
+  };
+
+  // Check if message is from current user
+  const isMyMessage = (message: ChatMessage) => {
+    return message.from === window.socketInstance?.id || message.from === 'me';
   };
 
   return (
@@ -174,7 +303,7 @@ const VideoChat: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Video Container - 4:3 ratio, no scrolling */}
+      {/* Main Video Container */}
       <div className="flex-1 flex items-center justify-center p-3 lg:p-4 relative overflow-hidden">
 
         {/* Connection Status Overlay */}
@@ -206,13 +335,13 @@ const VideoChat: React.FC = () => {
           </div>
         )}
 
-        {/* Video Grid - 4:3 ratio containers */}
+        {/* Video Grid */}
         <div className={`w-full h-full max-w-6xl flex items-center justify-center ${remoteStream
           ? 'grid grid-cols-1 grid-rows-2 lg:grid-cols-2 lg:grid-rows-1 gap-3 lg:gap-4'
           : 'flex'
           }`}>
 
-          {/* Remote Video - Top on mobile, Left on desktop */}
+          {/* Remote Video */}
           <div className={`relative bg-black rounded-xl lg:rounded-2xl overflow-hidden shadow-2xl border-2 border-green-500/30 ${remoteStream ? 'aspect-[4/3] w-full h-full' : 'hidden'
             }`}>
             <video
@@ -235,7 +364,7 @@ const VideoChat: React.FC = () => {
             )}
           </div>
 
-          {/* Local Video - Bottom on mobile, Right on desktop */}
+          {/* Local Video */}
           <div className={`relative bg-black rounded-xl lg:rounded-2xl overflow-hidden shadow-2xl border-2 border-blue-500/30 ${remoteStream ? 'aspect-[4/3] w-full h-full' : 'aspect-[4/3] w-full max-w-md'
             }`}>
             <video
@@ -290,10 +419,11 @@ const VideoChat: React.FC = () => {
             {/* Audio Toggle */}
             <button
               onClick={handleToggleAudio}
-              className={`p-3 lg:p-4 rounded-xl transition-all duration-200 transform hover:scale-105 ${isAudioEnabled
-                ? 'bg-gray-700/50 hover:bg-gray-600/50 text-white'
-                : 'bg-red-500 hover:bg-red-600 text-white'
-                } backdrop-blur-sm border border-white/10`}
+              className={`p-3 lg:p-4 rounded-xl transition-all duration-200 transform hover:scale-105 ${
+                isAudioEnabled
+                  ? 'bg-gray-700/50 hover:bg-gray-600/50 text-white'
+                  : 'bg-red-500 hover:bg-red-600 text-white'
+              } backdrop-blur-sm border border-white/10`}
             >
               {isAudioEnabled ? (
                 <Mic className="w-5 h-5 lg:w-6 lg:h-6" />
@@ -334,10 +464,11 @@ const VideoChat: React.FC = () => {
             {/* Video Toggle */}
             <button
               onClick={handleToggleVideo}
-              className={`p-3 lg:p-4 rounded-xl transition-all duration-200 transform hover:scale-105 ${isVideoEnabled
-                ? 'bg-gray-700/50 hover:bg-gray-600/50 text-white'
-                : 'bg-red-500 hover:bg-red-600 text-white'
-                } backdrop-blur-sm border border-white/10`}
+              className={`p-3 lg:p-4 rounded-xl transition-all duration-200 transform hover:scale-105 ${
+                isVideoEnabled
+                  ? 'bg-gray-700/50 hover:bg-gray-600/50 text-white'
+                  : 'bg-red-500 hover:bg-red-600 text-white'
+              } backdrop-blur-sm border border-white/10`}
             >
               {isVideoEnabled ? (
                 <Video className="w-5 h-5 lg:w-6 lg:h-6" />
@@ -345,6 +476,22 @@ const VideoChat: React.FC = () => {
                 <VideoOff className="w-5 h-5 lg:w-6 lg:h-6" />
               )}
             </button>
+
+            {/* Chat Button - Placed to the right of video toggle */}
+            <ChatButton
+              isChatOpen={isChatOpen}
+              onToggleChat={handleToggleChat}
+              chatMessages={chatMessages}
+              connectionState={connectionState}
+              newMessage={newMessage}
+              onNewMessageChange={setNewMessage}
+              onSendMessage={handleSendMessage}
+              chatInputRef={chatInputRef}
+              chatMessagesRef={chatMessagesRef}
+              onKeyPress={handleKeyPress}
+              isMyMessage={isMyMessage}
+              formatTime={formatTime}
+            />
           </div>
 
           {/* Status Text */}

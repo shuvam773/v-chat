@@ -8,10 +8,17 @@ declare global {
   }
 }
 
-export const useSocket = (
-  onPeerFound: (isInitiator: boolean, signalHandler: (signal: any) => void) => void,
-  onPeerDisconnected: () => void
-) => {
+interface UseSocketProps {
+  onPeerFound: (isInitiator: boolean, signalHandler: (signal: any) => void) => void;
+  onPeerDisconnected: () => void;
+  onReceiveMessage?: (message: any) => void;
+}
+
+export const useSocket = ({
+  onPeerFound,
+  onPeerDisconnected,
+  onReceiveMessage
+}: UseSocketProps) => {
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef<Socket | null>(null);
 
@@ -21,42 +28,49 @@ export const useSocket = (
     window.socketInstance = socket;
 
     socket.on('connect', () => {
-      console.log('Connected to signaling server');
+      
       setIsConnected(true);
     });
 
     socket.on('disconnect', () => {
-      console.log('Disconnected from signaling server');
+      
       setIsConnected(false);
     });
 
     socket.on('waiting-for-peer', () => {
-      console.log('Waiting for peer...');
+      // console.log('Waiting for peer...');
     });
 
     socket.on('peer-found', (data) => {
-      console.log('Peer found:', data);
+      
       onPeerFound(data.initiator, (signal) => {
         socket.emit('signal', { signal });
       });
     });
 
     socket.on('signal', (data) => {
-      console.log('Received signal:', data);
+      
       if (window.signalHandler) {
         window.signalHandler(data);
       }
     });
 
     socket.on('peer-disconnected', () => {
-      console.log('Peer disconnected');
       onPeerDisconnected();
+    });
+
+    // Add chat message listener
+    socket.on('receive-message', (message) => {
+      
+      if (onReceiveMessage) {
+        onReceiveMessage(message);
+      }
     });
 
     return () => {
       socket.disconnect();
     };
-  }, [onPeerFound, onPeerDisconnected]);
+  }, [onPeerFound, onPeerDisconnected, onReceiveMessage]);
 
   const findPeer = () => {
     if (socketRef.current) {
@@ -70,9 +84,16 @@ export const useSocket = (
     }
   };
 
+  const sendMessage = (text: string) => {
+    if (socketRef.current) {
+      socketRef.current.emit('send-message', { text });
+    }
+  };
+
   return {
     isConnected,
     findPeer,
-    disconnectPeer
+    disconnectPeer,
+    sendMessage
   };
 };

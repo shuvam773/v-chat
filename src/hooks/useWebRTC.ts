@@ -80,7 +80,6 @@ if (!sender?.track) return;
 
           try {
             await sender.setParameters(params);
-            console.log("Adjusted bitrate:", params.encodings[0].maxBitrate);
           } catch (err) {
             console.error("Error setting parameters:", err);
           }
@@ -124,7 +123,7 @@ if (!sender?.track) return;
     };
 
     pc.onconnectionstatechange = () => {
-      console.log('Connection state:', pc.connectionState);
+
       if (['disconnected', 'failed'].includes(pc.connectionState)) {
         setConnectionStatus('idle');
         setRemoteStream(null);
