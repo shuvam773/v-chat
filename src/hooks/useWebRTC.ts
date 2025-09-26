@@ -12,8 +12,9 @@ export const useWebRTC = (
 
   const peerConnection = useRef<RTCPeerConnection | null>(null);
   const pendingCandidates = useRef<RTCIceCandidate[]>([]);
+  const bitrateMonitorRef = useRef<number | null>(null);
 
-  // Initialize local media stream
+  // 🔹 Initialize local media stream
   useEffect(() => {
     const initializeMedia = async () => {
       try {
@@ -28,7 +29,6 @@ export const useWebRTC = (
 
         setLocalStream(stream);
 
-        // Attach to local video
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
         }
@@ -46,13 +46,50 @@ export const useWebRTC = (
     };
   }, []);
 
-  // Attach remote stream automatically
+  // 🔹 Attach remote stream
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream;
     }
   }, [remoteStream]);
 
+  // 🔹 Monitor and adjust bitrate dynamically
+  const monitorAndAdjust = useCallback((pc: RTCPeerConnection) => {
+    if (bitrateMonitorRef.current) {
+      clearInterval(bitrateMonitorRef.current);
+    }
+
+    const sender = pc.getSenders().find(s => s.track?.kind === "video");
+if (!sender?.track) return;
+
+    bitrateMonitorRef.current = window.setInterval(async () => {
+      const stats = await pc.getStats(sender.track);
+      stats.forEach(async (report) => {
+        if (report.type === 'outbound-rtp' && report.kind === 'video') {
+          const params = sender.getParameters();
+          if (!params.encodings || !params.encodings[0]) return;
+
+          // 🔹 Adaptive logic
+          if (report.packetsLost > 50 || report.framesPerSecond < 10) {
+            // Bad connection → lower bitrate
+            params.encodings[0].maxBitrate = 300_000; // 300 kbps
+          } else {
+            // Good connection → higher bitrate
+            params.encodings[0].maxBitrate = 1_200_000; // 1.2 Mbps
+          }
+
+          try {
+            await sender.setParameters(params);
+            console.log("Adjusted bitrate:", params.encodings[0].maxBitrate);
+          } catch (err) {
+            console.error("Error setting parameters:", err);
+          }
+        }
+      });
+    }, 5000); // adjust every 5s
+  }, []);
+
+  // 🔹 Create PeerConnection
   const createPeerConnection = useCallback(() => {
     if (peerConnection.current) {
       peerConnection.current.close();
@@ -65,42 +102,19 @@ export const useWebRTC = (
       ],
     });
 
-    // Add local stream tracks to peer connection
     if (localStream) {
       localStream.getTracks().forEach((track) => {
         pc.addTrack(track, localStream);
       });
-
-      const videoSender = pc
-        .getSenders()
-        .find((s) => s.track?.kind === 'video');
-
-      if (videoSender) {
-        const params = videoSender.getParameters();
-        if (!params.encodings) {
-          params.encodings = [{}];
-        }
-
-        // Limit bitrate to ~300 kbps (adjust as needed)
-        params.encodings[0].maxBitrate = 300_000;
-
-        // Optionally allow downscaling
-        params.encodings[0].scaleResolutionDownBy = 2;
-
-        videoSender.setParameters(params).catch((err) => {
-          console.error('Error setting video parameters:', err);
-        });
-      }
     }
 
-    // Handle remote stream
+    // Attach remote stream
     pc.ontrack = (event) => {
       const [stream] = event.streams;
       setRemoteStream(stream);
       setConnectionStatus('connected');
     };
 
-    // Handle ICE candidates
     pc.onicecandidate = (event) => {
       if (event.candidate && window.socketInstance) {
         window.socketInstance.emit('signal', {
@@ -109,43 +123,37 @@ export const useWebRTC = (
       }
     };
 
-    // Handle connection state changes
     pc.onconnectionstatechange = () => {
       console.log('Connection state:', pc.connectionState);
-      if (
-        pc.connectionState === 'disconnected' ||
-        pc.connectionState === 'failed'
-      ) {
+      if (['disconnected', 'failed'].includes(pc.connectionState)) {
         setConnectionStatus('idle');
         setRemoteStream(null);
       }
     };
 
+    // 🔹 Start monitoring bitrate once connection is established
+    monitorAndAdjust(pc);
+
     peerConnection.current = pc;
     return pc;
-  }, [localStream]);
+  }, [localStream, monitorAndAdjust]);
 
+  // 🔹 Start call
   const startCall = useCallback(
     async (isInitiator: boolean, signalHandler: (signal: any) => void) => {
       setConnectionStatus('connecting');
-
       const pc = createPeerConnection();
 
-      // Set up signal handler
       window.signalHandler = async (data: any) => {
         if (data.signal.offer) {
           await pc.setRemoteDescription(data.signal.offer);
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           signalHandler({ answer });
-
-          // Flush pending candidates
           pendingCandidates.current.forEach((c) => pc.addIceCandidate(c));
           pendingCandidates.current = [];
         } else if (data.signal.answer) {
           await pc.setRemoteDescription(data.signal.answer);
-
-          // Flush pending candidates
           pendingCandidates.current.forEach((c) => pc.addIceCandidate(c));
           pendingCandidates.current = [];
         } else if (data.signal.candidate) {
@@ -162,7 +170,6 @@ export const useWebRTC = (
       };
 
       if (isInitiator) {
-        // Create and send offer
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         signalHandler({ offer });
@@ -171,16 +178,24 @@ export const useWebRTC = (
     [createPeerConnection]
   );
 
+  // 🔹 End call
   const endCall = useCallback(() => {
+    if (bitrateMonitorRef.current) {
+      clearInterval(bitrateMonitorRef.current);
+      bitrateMonitorRef.current = null;
+    }
+
     if (peerConnection.current) {
       peerConnection.current.close();
       peerConnection.current = null;
     }
+
     setRemoteStream(null);
     setConnectionStatus('idle');
     pendingCandidates.current = [];
   }, []);
 
+  // 🔹 Toggle video
   const toggleVideo = useCallback(() => {
     if (localStream) {
       const videoTrack = localStream.getVideoTracks()[0];
@@ -192,6 +207,7 @@ export const useWebRTC = (
     return false;
   }, [localStream]);
 
+  // 🔹 Toggle audio
   const toggleAudio = useCallback(() => {
     if (localStream) {
       const audioTrack = localStream.getAudioTracks()[0];
